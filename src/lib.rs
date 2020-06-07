@@ -34,6 +34,11 @@
 //! println!("{}", mtime.seconds());
 //! ```
 
+#![no_std]
+use std::prelude::v1::*;
+extern crate sgx_tstd as std;
+extern crate sgx_libc as libc;
+
 use std::fmt;
 use std::fs;
 use std::io;
@@ -89,25 +94,6 @@ impl FileTime {
         }
     }
 
-    /// Creates a new timestamp representing the current system time.
-    ///
-    /// ```
-    /// # use filetime::FileTime;
-    /// #
-    /// # fn example() -> std::io::Result<()> {
-    /// #     let path = "";
-    /// #
-    /// filetime::set_file_mtime(path, FileTime::now())?;
-    /// #
-    /// #     Ok(())
-    /// # }
-    /// ```
-    ///
-    /// Equivalent to `FileTime::from_system_time(SystemTime::now())`.
-    pub fn now() -> FileTime {
-        FileTime::from_system_time(SystemTime::now())
-    }
-
     /// Creates a new instance of `FileTime` with a number of seconds and
     /// nanoseconds relative to the Unix epoch, 1970-01-01T00:00:00Z.
     ///
@@ -142,17 +128,6 @@ impl FileTime {
     /// platforms and the `ftLastAccessTime` field on Windows platforms.
     pub fn from_last_access_time(meta: &fs::Metadata) -> FileTime {
         imp::from_last_access_time(meta).emulate_second_only_system()
-    }
-
-    /// Creates a new timestamp from the creation time listed in the specified
-    /// metadata.
-    ///
-    /// The returned value corresponds to the `birthtime` field of `stat` on
-    /// Unix platforms and the `ftCreationTime` field on Windows platforms. Note
-    /// that not all Unix platforms have this field available and may return
-    /// `None` in some circumstances.
-    pub fn from_creation_time(meta: &fs::Metadata) -> Option<FileTime> {
-        imp::from_creation_time(meta).map(|x| x.emulate_second_only_system())
     }
 
     /// Creates a new timestamp from the given SystemTime.
@@ -226,77 +201,6 @@ impl From<SystemTime> for FileTime {
     fn from(time: SystemTime) -> FileTime {
         FileTime::from_system_time(time)
     }
-}
-
-/// Set the last access and modification times for a file on the filesystem.
-///
-/// This function will set the `atime` and `mtime` metadata fields for a file
-/// on the local filesystem, returning any error encountered.
-pub fn set_file_times<P>(p: P, atime: FileTime, mtime: FileTime) -> io::Result<()>
-where
-    P: AsRef<Path>,
-{
-    imp::set_file_times(p.as_ref(), atime, mtime)
-}
-
-/// Set the last access and modification times for a file handle.
-///
-/// This function will either or both of  the `atime` and `mtime` metadata
-/// fields for a file handle , returning any error encountered. If `None` is
-/// specified then the time won't be updated. If `None` is specified for both
-/// options then no action is taken.
-pub fn set_file_handle_times(
-    f: &fs::File,
-    atime: Option<FileTime>,
-    mtime: Option<FileTime>,
-) -> io::Result<()> {
-    imp::set_file_handle_times(f, atime, mtime)
-}
-
-/// Set the last access and modification times for a file on the filesystem.
-/// This function does not follow symlink.
-///
-/// This function will set the `atime` and `mtime` metadata fields for a file
-/// on the local filesystem, returning any error encountered.
-pub fn set_symlink_file_times<P>(p: P, atime: FileTime, mtime: FileTime) -> io::Result<()>
-where
-    P: AsRef<Path>,
-{
-    imp::set_symlink_file_times(p.as_ref(), atime, mtime)
-}
-
-/// Set the last modification time for a file on the filesystem.
-///
-/// This function will set the `mtime` metadata field for a file on the local
-/// filesystem, returning any error encountered.
-///
-/// # Platform support
-///
-/// Where supported this will attempt to issue just one syscall to update only
-/// the `mtime`, but where not supported this may issue one syscall to learn the
-/// existing `atime` so only the `mtime` can be configured.
-pub fn set_file_mtime<P>(p: P, mtime: FileTime) -> io::Result<()>
-where
-    P: AsRef<Path>,
-{
-    imp::set_file_mtime(p.as_ref(), mtime)
-}
-
-/// Set the last access time for a file on the filesystem.
-///
-/// This function will set the `atime` metadata field for a file on the local
-/// filesystem, returning any error encountered.
-///
-/// # Platform support
-///
-/// Where supported this will attempt to issue just one syscall to update only
-/// the `atime`, but where not supported this may issue one syscall to learn the
-/// existing `mtime` so only the `atime` can be configured.
-pub fn set_file_atime<P>(p: P, atime: FileTime) -> io::Result<()>
-where
-    P: AsRef<Path>,
-{
-    imp::set_file_atime(p.as_ref(), atime)
 }
 
 #[cfg(test)]
